@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: pertamina-dashboard
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+    healthCheckPath: /
+    autoDeploy: true
+
+  - type: web
+    name: pertamina-dashboard-static
+    env: static
+    buildCommand: |
+      echo "Building static site..."
+    staticPublishPath: ./static
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

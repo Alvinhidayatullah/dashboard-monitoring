@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Monitoring - Pertamina</title>
+    
+    <!-- CSS Libraries -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- JS Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-chart-line"></i>
+                <span>PROJECT<span style="color: #FFD700;">MONITOR</span></span>
+            </a>
+            <div class="d-flex align-items-center">
+                <div class="text-white me-3">
+                    <small>Dashboard Monitoring</small>
+                    <div class="fw-bold">PERTAMINA</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tab Navigation -->
+    <div class="nav-tabs-container">
+        <div class="container-fluid">
+            <ul class="nav nav-tabs" id="mainTabs">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#" onclick="switchTab('summary')">
+                        <i class="fas fa-home"></i> Summary
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="switchTab('projects')">
+                        <i class="fas fa-project-diagram"></i> Proyek
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="switchTab('non-projects')">
+                        <i class="fas fa-tasks"></i> Non-Proyek
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="switchTab('manpower')">
+                        <i class="fas fa-users"></i> Man Power
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container-fluid">
+        <!-- Summary Tab -->
+        <div id="summary-tab" class="tab-content active">
+            <!-- Stats Cards -->
+            <div class="row mb-4">
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card stats-card bg-primary">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5>Total Proyek</h5>
+                                    <h2 id="total-projects">0</h2>
+                                </div>
+                                <i class="fas fa-project-diagram icon"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card stats-card bg-success">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5>Total Non-Proyek</h5>
+                                    <h2 id="total-non-projects">0</h2>
+                                </div>
+                                <i class="fas fa-tasks icon"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card stats-card bg-warning">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5>Total Budget</h5>
+                                    <h2 id="total-budget">Rp 0</h2>
+                                </div>
+                                <i class="fas fa-money-bill-wave icon"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card stats-card bg-info">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5>Actual Cost</h5>
+                                    <h2 id="total-actual">Rp 0</h2>
+                                </div>
+                                <i class="fas fa-calculator icon"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts & Priority Projects -->
+            <div class="row mb-4">
+                <div class="col-lg-8 mb-3 mb-lg-0">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>S-Curve Progress</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="chart-container">
+                                <canvas id="overall-s-curve-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Proyek Prioritas</h5>
+                            <button class="btn btn-outline-primary btn-sm" onclick="loadAllData()">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-container" style="height: 320px; overflow-y: auto;">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Proyek</th>
+                                            <th>Due Date</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="priority-projects">
+                                        <tr><td colspan="3" class="text-center py-3">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map & Status Distribution -->
+            <div class="row mb-4">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-map-marked-alt me-2"></i>Lokasi Proyek</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="map"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Status Proyek</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="status-distribution-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Plans -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-list-check me-2"></i>Action Plans</h5>
+                            <button class="btn btn-primary btn-sm" onclick="loadAllData()">
+                                <i class="fas fa-sync-alt me-1"></i> Refresh
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Proyek</th>
+                                            <th>Task</th>
+                                            <th>PIC</th>
+                                            <th>Due Date</th>
+                                            <th>Status</th>
+                                            <th>Progress</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="priority-tasks">
+                                        <tr><td colspan="6" class="text-center">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Projects Tab -->
+        <div id="projects-tab" class="tab-content" style="display: none;">
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-project-diagram me-2"></i>Daftar Proyek</h5>
+                            <div>
+                                <button class="btn btn-outline-primary btn-sm me-2" onclick="loadProjects()">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                                <button class="btn btn-primary btn-sm" onclick="showAddProjectModal()">
+                                    <i class="fas fa-plus me-1"></i> Tambah
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Nama Proyek</th>
+                                            <th>Status</th>
+                                            <th>Prioritas</th>
+                                            <th>Start - End</th>
+                                            <th>Budget</th>
+                                            <th>Progress</th>
+                                            <th>Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="projects-table">
+                                        <tr><td colspan="7" class="text-center">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project Details Section -->
+            <div class="row" id="project-details-section" style="display: none;">
+                <div class="col-lg-8">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">S-Curve Proyek</h5>
+                            <select id="project-select" class="form-select form-select-sm w-auto mt-2" onchange="loadProjectDetails()">
+                                <option value="">Pilih Proyek...</option>
+                            </select>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="project-s-curve-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Action Plans</h5>
+                            <button class="btn btn-primary btn-sm" onclick="showAddTaskModal()">
+                                <i class="fas fa-plus me-1"></i> Tambah Task
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Task</th>
+                                            <th>PIC</th>
+                                            <th>Due Date</th>
+                                            <th>Action Plan</th>
+                                            <th>Status</th>
+                                            <th>Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="project-tasks-table">
+                                        <tr><td colspan="6" class="text-center">Pilih proyek terlebih dahulu</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Budget vs Actual</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container-sm">
+                                <canvas id="project-deviation-chart"></canvas>
+                            </div>
+                            <div class="mt-3" id="project-financial-info">
+                                <!-- Financial info will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Informasi Proyek</h5>
+                        </div>
+                        <div class="card-body" id="project-info-details">
+                            <p class="text-muted">Pilih proyek untuk melihat detail</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Non-Projects Tab -->
+        <div id="non-projects-tab" class="tab-content" style="display: none;">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>Daftar Non-Proyek</h5>
+                            <div>
+                                <button class="btn btn-outline-primary btn-sm me-2" onclick="loadNonProjects()">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                                <button class="btn btn-primary btn-sm" onclick="showAddNonProjectModal()">
+                                    <i class="fas fa-plus me-1"></i> Tambah Non-Proyek
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Nama</th>
+                                            <th>Kategori</th>
+                                            <th>Status</th>
+                                            <th>Start - End</th>
+                                            <th>Budget</th>
+                                            <th>Progress</th>
+                                            <th>Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="non-projects-table">
+                                        <tr>
+                                            <td colspan="7" class="text-center py-4">
+                                                <div class="spinner-border text-primary" role="status">
+                                                    <span class="visually-hidden">Loading...</span>
+                                                </div>
+                                                <div class="mt-2">Memuat data...</div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Man Power Tab -->
+        <div id="manpower-tab" class="tab-content" style="display: none;">
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-users me-2"></i>Daftar Man Power</h5>
+                            <button class="btn btn-primary btn-sm" onclick="showAddManPowerModal()">
+                                <i class="fas fa-plus me-1"></i> Tambah
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Nama</th>
+                                            <th>Posisi</th>
+                                            <th>Departemen</th>
+                                            <th>Skills</th>
+                                            <th>Availability</th>
+                                            <th>Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="manpower-table">
+                                        <tr><td colspan="6" class="text-center">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Man Power Details -->
+            <div class="row mb-4" id="manpower-details-section" style="display: none;">
+                <div class="col-lg-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Distribusi Waktu</h5>
+                            <select id="manpower-select" class="form-select form-select-sm w-auto mt-2" onchange="loadManPowerDetails()">
+                                <option value="">Pilih Man Power...</option>
+                            </select>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="manpower-project-distribution-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Assignments</h5>
+                            <button class="btn btn-primary btn-sm" onclick="showAddAssignmentModal()">
+                                <i class="fas fa-plus me-1"></i> Tambah
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Proyek/Non-Proyek</th>
+                                            <th>Role</th>
+                                            <th>Jam/Minggu</th>
+                                            <th>Status</th>
+                                            <th>Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="manpower-assignments-table">
+                                        <tr><td colspan="5" class="text-center">Pilih man power terlebih dahulu</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Team Workload - HANYA DI SINI! -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Beban Kerja Tim</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="chart-workload-container">
+                                <canvas id="team-workload-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Add Project Modal -->
+    <div class="modal fade" id="addProjectModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Tambah Proyek Baru</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="projectForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Nama Proyek *</label>
+                                <input type="text" class="form-control" name="name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Status</label>
+                                <select class="form-select" name="status">
+                                    <option value="Not Started">Not Started</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="On Track">On Track</option>
+                                    <option value="Delayed">Delayed</option>
+                                    <option value="Completed">Completed</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Prioritas</label>
+                                <select class="form-select" name="priority">
+                                    <option value="Low">Low</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="High">High</option>
+                                    <option value="Critical">Critical</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Progress (%)</label>
+                                <input type="number" class="form-control" name="progress" min="0" max="100" value="0">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Start Date *</label>
+                                <input type="date" class="form-control" name="start_date" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">End Date *</label>
+                                <input type="date" class="form-control" name="end_date" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Budget (Rp) *</label>
+                                <input type="number" class="form-control" name="budget" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Actual Cost (Rp)</label>
+                                <input type="number" class="form-control" name="actual_cost" value="0">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Lokasi</label>
+                                <input type="text" class="form-control" name="location">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Latitude</label>
+                                <input type="number" step="any" class="form-control" name="latitude">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Longitude</label>
+                                <input type="number" step="any" class="form-control" name="longitude">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Deskripsi</label>
+                            <textarea class="form-control" name="description" rows="2"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary" onclick="addProject()">Simpan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Non-Project Modal -->
+    <div class="modal fade" id="addNonProjectModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Tambah Non-Proyek Baru</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="nonProjectForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Nama *</label>
+                                <input type="text" class="form-control" name="name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Kategori</label>
+                                <select class="form-select" name="category">
+                                    <option value="Internal">Internal</option>
+                                    <option value="Meeting">Meeting</option>
+                                    <option value="Training">Training</option>
+                                    <option value="Maintenance">Maintenance</option>
+                                    <option value="Lainnya">Lainnya</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Status</label>
+                                <select class="form-select" name="status">
+                                    <option value="Not Started">Not Started</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="On Hold">On Hold</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Progress (%)</label>
+                                <input type="number" class="form-control" name="progress" min="0" max="100" value="0">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Start Date *</label>
+                                <input type="date" class="form-control" name="start_date" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">End Date *</label>
+                                <input type="date" class="form-control" name="end_date" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Budget (Rp)</label>
+                                <input type="number" class="form-control" name="budget" value="0">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Actual Cost (Rp)</label>
+                                <input type="number" class="form-control" name="actual_cost" value="0">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Deskripsi</label>
+                            <textarea class="form-control" name="description" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary" onclick="addNonProject()">Simpan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Task Modal -->
+    <div class="modal fade" id="addTaskModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Tambah Task Baru</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="taskForm">
+                        <input type="hidden" id="taskProjectId" name="project_id">
+                        <div class="mb-3">
+                            <label class="form-label">Nama Task *</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">PIC *</label>
+                            <input type="text" class="form-control" name="pic" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Due Date *</label>
+                            <input type="date" class="form-control" name="due_date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Action Plan *</label>
+                            <textarea class="form-control" name="action_plan" rows="2" required></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Status</label>
+                                <select class="form-select" name="status">
+                                    <option value="Not Started">Not Started</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Completed">Completed</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Prioritas</label>
+                                <select class="form-select" name="priority">
+                                    <option value="Low">Low</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="High">High</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary" onclick="addTask()">Simpan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add ManPower Modal -->
+    <div class="modal fade" id="addManPowerModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Tambah Man Power Baru</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="manPowerForm">
+                        <div class="mb-3">
+                            <label class="form-label">Nama *</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" name="email">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Posisi *</label>
+                            <input type="text" class="form-control" name="position" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Departemen *</label>
+                            <input type="text" class="form-control" name="department" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Skills</label>
+                            <textarea class="form-control" name="skills" rows="2"></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Total Jam/Minggu</label>
+                                <input type="number" class="form-control" name="total_hours" value="40">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Availability (%)</label>
+                                <input type="number" class="form-control" name="availability" min="0" max="100" value="100">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary" onclick="addManPower()">Simpan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Assignment Modal -->
+    <div class="modal fade" id="addAssignmentModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Tambah Assignment Baru</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="assignmentForm">
+                        <input type="hidden" id="assignmentManPowerId" name="manpower_id">
+                        <div class="mb-3">
+                            <label class="form-label">Pilih Proyek/Non-Proyek</label>
+                            <select class="form-select" id="assignmentTarget" name="target_type" required>
+                                <option value="">-- Pilih Tipe --</option>
+                                <option value="project">Proyek</option>
+                                <option value="non_project">Non-Proyek</option>
+                            </select>
+                        </div>
+                        <div class="mb-3" id="projectSelection" style="display: none;">
+                            <label class="form-label">Pilih Proyek</label>
+                            <select class="form-select" id="projectSelectAssignment" name="project_id">
+                                <option value="">-- Pilih Proyek --</option>
+                            </select>
+                        </div>
+                        <div class="mb-3" id="nonProjectSelection" style="display: none;">
+                            <label class="form-label">Pilih Non-Proyek</label>
+                            <select class="form-select" id="nonProjectSelectAssignment" name="non_project_id">
+                                <option value="">-- Pilih Non-Proyek --</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Role *</label>
+                            <input type="text" class="form-control" name="role" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Jam per Minggu *</label>
+                            <input type="number" class="form-control" name="hours_per_week" min="1" max="40" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Start Date</label>
+                                <input type="date" class="form-control" name="start_date">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">End Date</label>
+                                <input type="date" class="form-control" name="end_date">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary" onclick="addAssignment()">Simpan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap & Custom JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    
+    <script>
+        // Setup assignment modal selection
+        document.getElementById('assignmentTarget').addEventListener('change', function() {
+            const projectDiv = document.getElementById('projectSelection');
+            const nonProjectDiv = document.getElementById('nonProjectSelection');
+            
+            if (this.value === 'project') {
+                projectDiv.style.display = 'block';
+                nonProjectDiv.style.display = 'none';
+            } else if (this.value === 'non_project') {
+                projectDiv.style.display = 'none';
+                nonProjectDiv.style.display = 'block';
+            } else {
+                projectDiv.style.display = 'none';
+                nonProjectDiv.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
